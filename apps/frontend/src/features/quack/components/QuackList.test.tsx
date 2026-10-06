@@ -40,4 +40,19 @@ describe("QuackList", () => {
     await userEvent.click(screen.getByRole("button", { name: /reload/i }))
     expect(onReload).toHaveBeenCalledOnce()
   })
+
+  it("renders a quack with its mood", () => {
+    render(<QuackList quacks={[quack({ mood: "happy" })]} />)
+
+    expect(screen.getByText("quack quack")).toBeInTheDocument()
+    expect(screen.getByText("happy")).toBeInTheDocument()
+    expect(screen.getByTestId("quack-mood")).toHaveTextContent("happy")
+  })
+
+  it("renders a quack without mood exactly as expected with no mood element", () => {
+    render(<QuackList quacks={[quack({ mood: null })]} />)
+
+    expect(screen.getByText("quack quack")).toBeInTheDocument()
+    expect(screen.queryByTestId("quack-mood")).not.toBeInTheDocument()
+  })
 })

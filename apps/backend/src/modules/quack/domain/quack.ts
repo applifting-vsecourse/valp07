@@ -1,3 +1,5 @@
+export type Mood = 'happy' | 'sad' | 'angry' | 'silly';
+
 export type QuackAuthor = {
   id: string;
   name: string;
@@ -7,6 +9,7 @@ export type QuackAuthor = {
 export type Quack = {
   id: string;
   text: string;
+  mood?: Mood | null;
   userId: string;
   createdAt: Date;
   updatedAt: Date;
