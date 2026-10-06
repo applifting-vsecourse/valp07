@@ -21,7 +21,6 @@ const SAMPLE_QUACKS: Quack[] = [
     id: "sample-1",
     text: "me: throws one crumb into the pond\nducks: assemble like the Avengers\ni fear i may have started something",
     userId: "sample-user-1",
-    mood: "silly",
     createdAt: new Date("2026-09-22T09:12:00"),
     user: { id: "sample-user-1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   },
@@ -42,7 +41,7 @@ function LandingPage() {
       <Seo title="Welcome" />
       <Header userMenu={<HeaderMenu />} />
       <main className="min-h-svh">
-        <section className="mx-auto w-full max-w-2xl px-4 pt-16 pb-12 text-center">
+        <section className="mx-auto w-full max-w-2xl px-4 pt-116 pb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
             Petr Valach
           </h1>

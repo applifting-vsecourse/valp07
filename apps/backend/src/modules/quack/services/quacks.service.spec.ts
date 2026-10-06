@@ -26,6 +26,18 @@ describe('QuacksService', () => {
 
     await expect(service.getQuacks()).resolves.toEqual(quacks);
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
+    expect(repository.getQuacks).toHaveBeenCalledWith(undefined);
+  });
+
+  it('passes search query to the repository', async () => {
+    const quacks = [aQuack({ text: 'duck pond' })];
+    const repository = mock<QuackRepository>();
+    repository.getQuacks.mockResolvedValue(quacks);
+
+    const service = new QuacksService(repository);
+
+    await expect(service.getQuacks('duck')).resolves.toEqual(quacks);
+    expect(repository.getQuacks).toHaveBeenCalledWith('duck');
   });
 
   it('creates a quack owned by the signed-in user', async () => {
