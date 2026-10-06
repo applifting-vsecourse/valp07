@@ -21,6 +21,7 @@ const SAMPLE_QUACKS: Quack[] = [
     id: "sample-1",
     text: "me: throws one crumb into the pond\nducks: assemble like the Avengers\ni fear i may have started something",
     userId: "sample-user-1",
+    mood: "silly",
     createdAt: new Date("2026-09-22T09:12:00"),
     user: { id: "sample-user-1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   },
