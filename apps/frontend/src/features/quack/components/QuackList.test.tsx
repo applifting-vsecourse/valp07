@@ -55,4 +55,28 @@ describe("QuackList", () => {
     expect(screen.getByText("quack quack")).toBeInTheDocument()
     expect(screen.queryByTestId("quack-mood")).not.toBeInTheDocument()
   })
+
+  it("renders default empty message when feed has no quacks and no query", () => {
+    render(<QuackList quacks={[]} />)
+
+    expect(screen.getByText("No quacks yet. Post the first one.")).toBeInTheDocument()
+  })
+
+  it("renders search empty state with search query and working clear button", async () => {
+    const onClearSearch = vi.fn()
+    render(
+      <QuackList
+        quacks={[]}
+        searchQuery="bread crumbs"
+        onClearSearch={onClearSearch}
+      />,
+    )
+
+    expect(screen.getByText(/No quacks found matching “bread crumbs”/i)).toBeInTheDocument()
+    const clearButton = screen.getByRole("button", { name: /clear search/i })
+    expect(clearButton).toBeInTheDocument()
+
+    await userEvent.click(clearButton)
+    expect(onClearSearch).toHaveBeenCalledOnce()
+  })
 })
