@@ -86,7 +86,12 @@ export const seedDatabase = async (
 
   // Listed oldest first. The feed sorts newest first, so the last entry here is
   // the one at the top of the screen.
-  const exampleQuacks: { author: User; minutesAgo: number; text: string }[] = [
+  const exampleQuacks: {
+    author: User;
+    minutesAgo: number;
+    text: string;
+    mood?: 'happy' | 'sad' | 'angry' | 'silly';
+  }[] = [
     {
       author: pondAdmin,
       minutesAgo: 2870,
@@ -96,6 +101,7 @@ Yes, again. No, we don't know why the contractor is a heron.`,
     {
       author: migrationSeason,
       minutesAgo: 2610,
+      mood: 'sad',
       text: `Left at dawn. 400 km down, 2,600 to go.
 The V formation works beautifully right up until whoever is at the front decides to take a shortcut.`,
     },
@@ -108,6 +114,7 @@ Crust: excellent. Delivery: amateur. 6/10.`,
     {
       author: caffeinatedDuck,
       minutesAgo: 1980,
+      mood: 'silly',
       text: `just spilled coffee on my keyboard
 now every time i type "duck" it autocorrects to "quack"
 send help or more caffeine`,
@@ -120,6 +127,7 @@ send help or more caffeine`,
     {
       author: migrationSeason,
       minutesAgo: 1240,
+      mood: 'angry',
       text: `Update on the shortcut: it added 90 km and one entire mountain.
 We are not currently speaking to the front of the V.`,
     },
@@ -132,24 +140,28 @@ We have footage. It is extremely blurry footage. But we have it.`,
     {
       author: caffeinatedDuck,
       minutesAgo: 640,
+      mood: 'happy',
       text: `third espresso and i can hear colours now
 one of them is quacking`,
     },
     {
       author: breadCritic,
       minutesAgo: 415,
+      mood: 'happy',
       text: `Multigrain. Seeds still attached. Genuinely nutritious.
 The pond is not ready for this level of quality and, frankly, neither am I. 9/10.`,
     },
     {
       author: deepDuckThoughts,
       minutesAgo: 260,
+      mood: 'sad',
       text: `Everyone says "water off a duck's back" like it's a compliment.
 Some of us would quite like to feel things.`,
     },
     {
       author: caffeinatedDuck,
       minutesAgo: 95,
+      mood: 'silly',
       text: `me: throws one crumb into the pond
 ducks: assemble like the Avengers
 i fear i may have started something`,
@@ -164,9 +176,10 @@ Please stop tagging me.`,
 
   const now = Date.now();
 
-  for (const { author, minutesAgo, text } of exampleQuacks) {
+  for (const { author, minutesAgo, text, mood } of exampleQuacks) {
     await createQuack(prisma, {
       text,
+      mood,
       userId: author.id,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
     });

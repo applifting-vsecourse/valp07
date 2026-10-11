@@ -42,6 +42,25 @@ describe('QuacksService', () => {
     // the author comes from the session, not from the caller's payload
     expect(repository.createQuack).toHaveBeenCalledWith({
       text: 'hello',
+      mood: undefined,
+      userId: 'u1',
+    });
+  });
+
+  it('creates a quack with a mood', async () => {
+    const created = aQuack({ id: 'q3', text: 'feeling funny', mood: 'silly' });
+    const repository = mock<QuackRepository>();
+    repository.createQuack.mockResolvedValue(created);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u1' } as Identity;
+
+    await expect(
+      service.createQuack(user, { text: 'feeling funny', mood: 'silly' }),
+    ).resolves.toEqual(created);
+    expect(repository.createQuack).toHaveBeenCalledWith({
+      text: 'feeling funny',
+      mood: 'silly',
       userId: 'u1',
     });
   });
