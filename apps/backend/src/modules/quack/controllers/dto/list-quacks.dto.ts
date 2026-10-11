@@ -10,4 +10,3 @@ export class ListQuacksDto {
   @IsString()
   q?: string;
 }
-
