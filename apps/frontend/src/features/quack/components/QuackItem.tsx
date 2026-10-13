@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
+import { PollDisplay } from "@/features/quack/components/PollDisplay"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -43,6 +44,7 @@ export function QuackItem({ quack }: QuackItemProps) {
           ) : null}
         </div>
         <p className="text-sm break-words whitespace-pre-line">{quack.text}</p>
+        {quack.poll ? <PollDisplay poll={quack.poll} /> : null}
       </div>
     </article>
   )
