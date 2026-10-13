@@ -1,3 +1,5 @@
+import { Poll } from './poll';
+
 export type Mood = 'happy' | 'sad' | 'angry' | 'silly';
 
 export type QuackAuthor = {
@@ -14,4 +16,5 @@ export type Quack = {
   createdAt: Date;
   updatedAt: Date;
   user?: QuackAuthor;
+  poll?: Poll | null;
 };

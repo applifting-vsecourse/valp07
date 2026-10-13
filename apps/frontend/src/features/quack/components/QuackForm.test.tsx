@@ -10,7 +10,7 @@ vi.mock("@/features/quack/api/addQuack", () => ({
   addQuack: vi.fn(),
 }))
 
-function renderQuackForm() {
+function renderQuackForm(props?: { defaultMood?: "happy" | "sad" | "angry" | "silly" | "none" }) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -20,7 +20,7 @@ function renderQuackForm() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <QuackForm />
+      <QuackForm {...props} />
     </QueryClientProvider>,
   )
 }
@@ -60,6 +60,7 @@ describe("QuackForm", () => {
     expect(vi.mocked(addQuack).mock.calls[0]?.[0]).toEqual({
       text: "Hello duck world",
       mood: undefined,
+      poll: undefined,
     })
   })
 
@@ -89,6 +90,7 @@ describe("QuackForm", () => {
     expect(vi.mocked(addQuack).mock.calls[0]?.[0]).toEqual({
       text: "Such a funny day",
       mood: "silly",
+      poll: undefined,
     })
   })
 
@@ -103,18 +105,7 @@ describe("QuackForm", () => {
       user: { id: "u1", name: "Duck", username: "duck" },
     })
 
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    })
-
-    render(
-      <QueryClientProvider client={queryClient}>
-        <QuackForm defaultMood="happy" />
-      </QueryClientProvider>,
-    )
+    renderQuackForm({ defaultMood: "happy" })
 
     expect(screen.getByRole("combobox", { name: /mood/i })).toHaveTextContent("Happy")
 
@@ -124,9 +115,84 @@ describe("QuackForm", () => {
     expect(vi.mocked(addQuack).mock.calls[0]?.[0]).toEqual({
       text: "Quacking with mood",
       mood: "happy",
+      poll: undefined,
     })
 
     // After reset, mood remains the default mood "Happy"
     expect(screen.getByRole("combobox", { name: /mood/i })).toHaveTextContent("Happy")
+  })
+
+  it("toggles poll inputs, adds/removes options, and submits quack with poll", async () => {
+    const user = userEvent.setup()
+    vi.mocked(addQuack).mockResolvedValue({
+      id: "q4",
+      text: "Where to lunch?",
+      userId: "u1",
+      createdAt: new Date(),
+      user: { id: "u1", name: "Duck", username: "duck" },
+    })
+
+    renderQuackForm()
+
+    // Click "Add poll"
+    await user.click(screen.getByRole("button", { name: /add poll/i }))
+
+    expect(screen.getByPlaceholderText("Option 1")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("Option 2")).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText("Option 3")).not.toBeInTheDocument()
+
+    // Add option 3
+    await user.click(screen.getByRole("button", { name: /add option/i }))
+    expect(screen.getByPlaceholderText("Option 3")).toBeInTheDocument()
+
+    // Add option 4 (reaches max 4)
+    await user.click(screen.getByRole("button", { name: /add option/i }))
+    expect(screen.getByPlaceholderText("Option 4")).toBeInTheDocument()
+    // "Add option" should disappear once 4 options are reached
+    expect(screen.queryByRole("button", { name: /add option/i })).not.toBeInTheDocument()
+
+    // Remove option 4
+    await user.click(screen.getByRole("button", { name: /remove option 4/i }))
+    expect(screen.queryByPlaceholderText("Option 4")).not.toBeInTheDocument()
+
+    // Type text and options
+    await user.type(screen.getByLabelText(/new quack/i), "Where to lunch?")
+    await user.type(screen.getByPlaceholderText("Option 1"), "Pizza")
+    await user.type(screen.getByPlaceholderText("Option 2"), "Burgers")
+    await user.type(screen.getByPlaceholderText("Option 3"), "Salad")
+
+    await user.click(screen.getByRole("button", { name: /^quack$/i }))
+
+    expect(vi.mocked(addQuack).mock.calls[0]?.[0]).toEqual({
+      text: "Where to lunch?",
+      mood: undefined,
+      poll: {
+        options: ["Pizza", "Burgers", "Salad"],
+      },
+    })
+  })
+
+  it("validates empty poll options when attempting to submit", async () => {
+    const user = userEvent.setup()
+    renderQuackForm()
+
+    await user.click(screen.getByRole("button", { name: /add poll/i }))
+    await user.type(screen.getByLabelText(/new quack/i), "Where to lunch?")
+    await user.click(screen.getByRole("button", { name: /^quack$/i }))
+
+    expect(screen.getAllByText(/option text is required/i).length).toBe(2)
+    expect(vi.mocked(addQuack)).not.toHaveBeenCalled()
+  })
+
+  it("removes poll cleanly when clicking Remove poll", async () => {
+    const user = userEvent.setup()
+    renderQuackForm()
+
+    await user.click(screen.getByRole("button", { name: /add poll/i }))
+    expect(screen.getByPlaceholderText("Option 1")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /remove poll/i }))
+    expect(screen.queryByPlaceholderText("Option 1")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /add poll/i })).toBeInTheDocument()
   })
 })
