@@ -91,4 +91,42 @@ describe("QuackForm", () => {
       mood: "silly",
     })
   })
+
+  it("starts with default mood selected and preserves it after submit", async () => {
+    const user = userEvent.setup()
+    vi.mocked(addQuack).mockResolvedValue({
+      id: "q3",
+      text: "Quacking with mood",
+      mood: "happy",
+      userId: "u1",
+      createdAt: new Date(),
+      user: { id: "u1", name: "Duck", username: "duck" },
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <QuackForm defaultMood="happy" />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole("combobox", { name: /mood/i })).toHaveTextContent("Happy")
+
+    await user.type(screen.getByLabelText(/new quack/i), "Quacking with mood")
+    await user.click(screen.getByRole("button", { name: /^quack$/i }))
+
+    expect(vi.mocked(addQuack).mock.calls[0]?.[0]).toEqual({
+      text: "Quacking with mood",
+      mood: "happy",
+    })
+
+    // After reset, mood remains the default mood "Happy"
+    expect(screen.getByRole("combobox", { name: /mood/i })).toHaveTextContent("Happy")
+  })
 })
