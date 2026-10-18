@@ -4,12 +4,16 @@ import { authKeys } from "@/lib/auth-keys"
 
 import { authClient } from "@/features/auth/lib/auth-client"
 
+export type DefaultMood = "none" | "happy" | "sad" | "angry" | "silly"
+
 export type SessionUser = {
   id: string
   email: string
   name: string
   username: string
   role?: string
+  bio?: string
+  defaultMood?: DefaultMood
 }
 
 export type Session = {
@@ -26,7 +30,10 @@ export const authSessionQueryOptions = () =>
 
       const user = data.user as typeof data.user & {
         username?: string | null
+        displayUsername?: string | null
         role?: string | null
+        bio?: string | null
+        defaultMood?: DefaultMood | null
       }
 
       return {
@@ -34,8 +41,10 @@ export const authSessionQueryOptions = () =>
           id: user.id,
           email: user.email,
           name: user.name,
-          username: user.username ?? "",
+          username: user.displayUsername ?? user.username ?? "",
           role: user.role ?? undefined,
+          bio: user.bio ?? "",
+          defaultMood: user.defaultMood ?? "none",
         },
       }
     },

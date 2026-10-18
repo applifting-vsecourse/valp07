@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
@@ -48,21 +49,37 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-type QuackFormProps = { className?: string }
+type QuackFormProps = {
+  className?: string
+  defaultMood?: Mood | "none"
+}
 
-export function QuackForm({ className }: QuackFormProps) {
+export function QuackForm({ className, defaultMood = "none" }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: "none" },
+    defaultValues: { text: "", mood: defaultMood },
   })
+
+  useEffect(() => {
+    if (!form.formState.isDirty) {
+      form.reset({ text: form.getValues("text"), mood: defaultMood })
+    }
+  }, [defaultMood, form])
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
 
   const handleSubmit = (values: FormValues) => {
     const mood = values.mood && values.mood !== "none" ? values.mood : undefined
-    addQuack.mutate({ text: values.text, mood }, { onSuccess: () => form.reset() })
+    addQuack.mutate(
+      { text: values.text, mood },
+      {
+        onSuccess: () => {
+          form.reset({ text: "", mood: defaultMood })
+        },
+      },
+    )
   }
 
   return (

@@ -13,6 +13,14 @@ export const betterAuthCoreConfig: BetterAuthOptions = {
         defaultValue: 'user',
         input: false,
       },
+      bio: {
+        type: 'string',
+        required: false,
+      },
+      defaultMood: {
+        type: 'string',
+        required: false,
+      },
     },
   },
   plugins: [openAPI(), username()],

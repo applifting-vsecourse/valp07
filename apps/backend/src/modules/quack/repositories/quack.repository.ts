@@ -19,7 +19,7 @@ const mapPrismaQuackToDomain = (
     ? {
         id: quack.user.id,
         name: quack.user.name,
-        username: quack.user.username ?? '',
+        username: quack.user.displayUsername || quack.user.username || '',
       }
     : undefined,
 });
@@ -46,6 +46,14 @@ export class QuackRepository {
             {
               user: {
                 username: { contains: trimmed, mode: 'insensitive' as const },
+              },
+            },
+            {
+              user: {
+                displayUsername: {
+                  contains: trimmed,
+                  mode: 'insensitive' as const,
+                },
               },
             },
           ],
