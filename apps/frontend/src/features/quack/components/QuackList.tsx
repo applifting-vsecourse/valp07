@@ -8,20 +8,26 @@ import { QuackItem } from "@/features/quack/components/QuackItem"
 
 type QuackListProps = {
   quacks: Quack[]
+  currentUserId?: string
   isLoading?: boolean
   error?: Error
   onReload?: () => void
   searchQuery?: string
   onClearSearch?: () => void
+  activeTab?: "all" | "mine"
+  onWriteFirstQuack?: () => void
 }
 
 export function QuackList({
   quacks,
+  currentUserId,
   isLoading,
   error,
   onReload,
   searchQuery,
   onClearSearch,
+  activeTab = "all",
+  onWriteFirstQuack,
 }: QuackListProps) {
   return (
     <div className="flex flex-col">
@@ -67,6 +73,19 @@ export function QuackList({
               </Button>
             ) : null}
           </div>
+        ) : activeTab === "mine" ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center text-sm text-muted-foreground">
+            <p>You haven&apos;t posted any quacks yet.</p>
+            {onWriteFirstQuack ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onWriteFirstQuack}
+              >
+                Write your first quack
+              </Button>
+            ) : null}
+          </div>
         ) : (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No quacks yet. Post the first one.
@@ -78,6 +97,7 @@ export function QuackList({
         <QuackItem
           key={quack.id}
           quack={quack}
+          currentUserId={currentUserId}
         />
       ))}
     </div>

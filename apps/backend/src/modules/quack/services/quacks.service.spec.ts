@@ -55,7 +55,7 @@ describe('QuacksService', () => {
 
     await expect(service.getQuacks(undefined, 'u1')).resolves.toEqual(quacks);
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
-    expect(repository.getQuacks).toHaveBeenCalledWith(undefined, 'u1');
+    expect(repository.getQuacks).toHaveBeenCalledWith(undefined, 'u1', undefined);
   });
 
   it('passes search query to the repository', async () => {
@@ -65,8 +65,8 @@ describe('QuacksService', () => {
 
     const service = new QuacksService(repository);
 
-    await expect(service.getQuacks('duck', 'u1')).resolves.toEqual(quacks);
-    expect(repository.getQuacks).toHaveBeenCalledWith('duck', 'u1');
+    await expect(service.getQuacks('duck', 'u1', true)).resolves.toEqual(quacks);
+    expect(repository.getQuacks).toHaveBeenCalledWith('duck', 'u1', true);
   });
 
   it('creates a quack owned by the signed-in user', async () => {
@@ -139,5 +139,16 @@ describe('QuacksService', () => {
 
     await expect(service.retractVote('p1', user)).resolves.toEqual(poll);
     expect(repository.retractVote).toHaveBeenCalledWith('p1', 'u1');
+  });
+
+  it('deletes a quack', async () => {
+    const repository = mock<QuackRepository>();
+    repository.deleteQuack.mockResolvedValue();
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u1' } as Identity;
+
+    await expect(service.deleteQuack('q1', user)).resolves.toBeUndefined();
+    expect(repository.deleteQuack).toHaveBeenCalledWith('q1', 'u1');
   });
 });

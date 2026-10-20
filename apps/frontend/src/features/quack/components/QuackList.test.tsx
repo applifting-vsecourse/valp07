@@ -1,4 +1,5 @@
 // Example component test — the pattern to copy for your own components.
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
@@ -15,9 +16,22 @@ const quack = (overrides: Partial<Quack> = {}): Quack => ({
   ...overrides,
 })
 
+function renderQuackList(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  )
+}
+
 describe("QuackList", () => {
   it("renders quacks with author info", () => {
-    render(<QuackList quacks={[quack()]} />)
+    renderQuackList(<QuackList quacks={[quack()]} />)
 
     expect(screen.getByText("quack quack")).toBeInTheDocument()
     expect(screen.getByText("Caffeinated Duck")).toBeInTheDocument()
@@ -26,7 +40,7 @@ describe("QuackList", () => {
 
   it("shows an error with a working reload button", async () => {
     const onReload = vi.fn()
-    render(
+    renderQuackList(
       <QuackList
         quacks={[]}
         error={new Error("Server unreachable")}
@@ -42,7 +56,7 @@ describe("QuackList", () => {
   })
 
   it("renders a quack with its mood", () => {
-    render(<QuackList quacks={[quack({ mood: "happy" })]} />)
+    renderQuackList(<QuackList quacks={[quack({ mood: "happy" })]} />)
 
     expect(screen.getByText("quack quack")).toBeInTheDocument()
     expect(screen.getByText("happy")).toBeInTheDocument()
@@ -50,21 +64,21 @@ describe("QuackList", () => {
   })
 
   it("renders a quack without mood exactly as expected with no mood element", () => {
-    render(<QuackList quacks={[quack({ mood: null })]} />)
+    renderQuackList(<QuackList quacks={[quack({ mood: null })]} />)
 
     expect(screen.getByText("quack quack")).toBeInTheDocument()
     expect(screen.queryByTestId("quack-mood")).not.toBeInTheDocument()
   })
 
   it("renders default empty message when feed has no quacks and no query", () => {
-    render(<QuackList quacks={[]} />)
+    renderQuackList(<QuackList quacks={[]} />)
 
     expect(screen.getByText("No quacks yet. Post the first one.")).toBeInTheDocument()
   })
 
   it("renders search empty state with search query and working clear button", async () => {
     const onClearSearch = vi.fn()
-    render(
+    renderQuackList(
       <QuackList
         quacks={[]}
         searchQuery="bread crumbs"
@@ -78,5 +92,47 @@ describe("QuackList", () => {
 
     await userEvent.click(clearButton)
     expect(onClearSearch).toHaveBeenCalledOnce()
+  })
+
+  it("renders mine tab empty message and triggers write quack", async () => {
+    const onWriteFirstQuack = vi.fn()
+    renderQuackList(
+      <QuackList
+        quacks={[]}
+        activeTab="mine"
+        onWriteFirstQuack={onWriteFirstQuack}
+      />,
+    )
+
+    expect(screen.getByText("You haven't posted any quacks yet.")).toBeInTheDocument()
+    const writeBtn = screen.getByRole("button", { name: /write your first quack/i })
+    expect(writeBtn).toBeInTheDocument()
+    await userEvent.click(writeBtn)
+    expect(onWriteFirstQuack).toHaveBeenCalledOnce()
+  })
+
+  it("shows delete button only for user's own quacks", () => {
+    const ownQuack = quack({ id: "q1", userId: "u1" })
+    const otherQuack = quack({ id: "q2", userId: "u2", text: "other quack" })
+
+    renderQuackList(
+      <QuackList
+        quacks={[ownQuack, otherQuack]}
+        currentUserId="u1"
+      />,
+    )
+
+    const deleteButtons = screen.getAllByRole("button", { name: /delete quack/i })
+    expect(deleteButtons).toHaveLength(1)
+  })
+
+  it("does not show delete button when not signed in", () => {
+    renderQuackList(
+      <QuackList
+        quacks={[quack()]}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: /delete quack/i })).not.toBeInTheDocument()
   })
 })
