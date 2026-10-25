@@ -83,10 +83,7 @@ export class QuacksController {
     description: 'Forbidden - not author of this quack',
   })
   @ApiResponse({ status: 404, description: 'Quack not found' })
-  async delete(
-    @User() user: Identity,
-    @Param('id') id: string,
-  ): Promise<void> {
+  async delete(@User() user: Identity, @Param('id') id: string): Promise<void> {
     await this.quacksService.deleteQuack(id, user);
   }
 }

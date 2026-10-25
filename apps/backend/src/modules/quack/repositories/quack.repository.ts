@@ -1,9 +1,9 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
 import {
+  Prisma,
   Poll as PrismaPoll,
   PollOption as PrismaPollOption,
   PollVote as PrismaPollVote,
-  Prisma,
   Quack as PrismaQuack,
   User as PrismaUser,
 } from '@/generated/prisma/client';

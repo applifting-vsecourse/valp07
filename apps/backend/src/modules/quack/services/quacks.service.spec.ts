@@ -55,7 +55,11 @@ describe('QuacksService', () => {
 
     await expect(service.getQuacks(undefined, 'u1')).resolves.toEqual(quacks);
     expect(repository.getQuacks).toHaveBeenCalledTimes(1);
-    expect(repository.getQuacks).toHaveBeenCalledWith(undefined, 'u1', undefined);
+    expect(repository.getQuacks).toHaveBeenCalledWith(
+      undefined,
+      'u1',
+      undefined,
+    );
   });
 
   it('passes search query to the repository', async () => {
@@ -65,7 +69,9 @@ describe('QuacksService', () => {
 
     const service = new QuacksService(repository);
 
-    await expect(service.getQuacks('duck', 'u1', true)).resolves.toEqual(quacks);
+    await expect(service.getQuacks('duck', 'u1', true)).resolves.toEqual(
+      quacks,
+    );
     expect(repository.getQuacks).toHaveBeenCalledWith('duck', 'u1', true);
   });
 
