@@ -109,6 +109,7 @@ function QuacksPage() {
         <QuackList
           quacks={quacksQuery.data ?? []}
           currentUserId={user?.id}
+          isAdmin={user?.role === "admin"}
           isLoading={quacksQuery.isLoading}
           error={quacksQuery.error ?? undefined}
           searchQuery={q?.trim()}

@@ -23,7 +23,7 @@ const aQuack: Quack = {
   },
 }
 
-function renderQuackItem(quack: Quack, currentUserId?: string) {
+function renderQuackItem(quack: Quack, currentUserId?: string, isAdmin?: boolean) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -36,6 +36,7 @@ function renderQuackItem(quack: Quack, currentUserId?: string) {
       <QuackItem
         quack={quack}
         currentUserId={currentUserId}
+        isAdmin={isAdmin}
       />
     </QueryClientProvider>,
   )
@@ -58,6 +59,11 @@ describe("QuackItem delete action", () => {
 
   it("renders delete button when user is the author", () => {
     renderQuackItem(aQuack, "author-1")
+    expect(screen.getByRole("button", { name: /delete quack/i })).toBeInTheDocument()
+  })
+
+  it("renders delete button when user is an admin even if not author", () => {
+    renderQuackItem(aQuack, "other-user", true)
     expect(screen.getByRole("button", { name: /delete quack/i })).toBeInTheDocument()
   })
 

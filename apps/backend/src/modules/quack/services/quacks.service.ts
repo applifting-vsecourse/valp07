@@ -17,7 +17,7 @@ export class QuacksService {
   }
 
   async deleteQuack(quackId: string, user: Identity): Promise<void> {
-    return this.quackRepository.deleteQuack(quackId, user.id);
+    return this.quackRepository.deleteQuack(quackId, user.id, user.role);
   }
 
   async createQuack(

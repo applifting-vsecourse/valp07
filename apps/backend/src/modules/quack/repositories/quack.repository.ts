@@ -1,9 +1,9 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
 import {
+  Prisma,
   Poll as PrismaPoll,
   PollOption as PrismaPollOption,
   PollVote as PrismaPollVote,
-  Prisma,
   Quack as PrismaQuack,
   User as PrismaUser,
 } from '@/generated/prisma/client';
@@ -253,7 +253,11 @@ export class QuackRepository {
     return mapPrismaPollToDomain(updatedPoll, userId);
   }
 
-  async deleteQuack(quackId: string, userId: string): Promise<void> {
+  async deleteQuack(
+    quackId: string,
+    userId: string,
+    userRole?: string,
+  ): Promise<void> {
     const quack = await this.prisma.quack.findUnique({
       where: { id: quackId },
     });
@@ -262,7 +266,10 @@ export class QuackRepository {
       throw new NotFoundException(`Quack with id ${quackId} not found`);
     }
 
-    if (quack.userId !== userId) {
+    const isAuthor = quack.userId === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
       throw new ForbiddenException(
         'You are not authorized to delete this quack',
       );

@@ -23,14 +23,16 @@ import { useDeleteQuack } from "@/features/quack/hooks/useDeleteQuack"
 type QuackItemProps = {
   quack: Quack
   currentUserId?: string
+  isAdmin?: boolean
 }
 
-export function QuackItem({ quack, currentUserId }: QuackItemProps) {
+export function QuackItem({ quack, currentUserId, isAdmin = false }: QuackItemProps) {
   const { name, username } = quack.user
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const deleteQuackMutation = useDeleteQuack()
 
   const isAuthor = Boolean(currentUserId && quack.userId === currentUserId)
+  const canDelete = isAuthor || isAdmin
 
   const initials = name
     .split(" ")
@@ -75,12 +77,12 @@ export function QuackItem({ quack, currentUserId }: QuackItemProps) {
               ) : null}
             </div>
 
-            {isAuthor ? (
+            {canDelete ? (
               <Button
                 variant="ghost"
                 size="sm"
                 aria-label="Delete quack"
-                className="text-muted-foreground hover:text-destructive h-7 px-2"
+                className="h-7 px-2 text-muted-foreground hover:text-destructive"
                 onClick={() => setIsConfirmOpen(true)}
               >
                 <Trash2 className="size-4" />
@@ -118,9 +120,7 @@ export function QuackItem({ quack, currentUserId }: QuackItemProps) {
               onClick={handleDelete}
               disabled={deleteQuackMutation.isPending}
             >
-              {deleteQuackMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
+              {deleteQuackMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
               Delete
             </Button>
           </DialogFooter>

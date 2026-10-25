@@ -24,9 +24,7 @@ function renderQuackList(ui: React.ReactElement) {
     },
   })
 
-  return render(
-    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
-  )
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
 }
 
 describe("QuackList", () => {
@@ -126,12 +124,24 @@ describe("QuackList", () => {
     expect(deleteButtons).toHaveLength(1)
   })
 
-  it("does not show delete button when not signed in", () => {
+  it("shows delete button for all quacks when user is an admin", () => {
+    const quack1 = quack({ id: "q1", userId: "u1" })
+    const quack2 = quack({ id: "q2", userId: "u2", text: "other quack" })
+
     renderQuackList(
       <QuackList
-        quacks={[quack()]}
+        quacks={[quack1, quack2]}
+        currentUserId="u3"
+        isAdmin={true}
       />,
     )
+
+    const deleteButtons = screen.getAllByRole("button", { name: /delete quack/i })
+    expect(deleteButtons).toHaveLength(2)
+  })
+
+  it("does not show delete button when not signed in", () => {
+    renderQuackList(<QuackList quacks={[quack()]} />)
 
     expect(screen.queryByRole("button", { name: /delete quack/i })).not.toBeInTheDocument()
   })
