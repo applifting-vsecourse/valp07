@@ -11,7 +11,6 @@ import { Poll } from '@/modules/quack/domain/poll';
 import { Mood, Quack } from '@/modules/quack/domain/quack';
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -253,28 +252,31 @@ export class QuackRepository {
     return mapPrismaPollToDomain(updatedPoll, userId);
   }
 
-  async deleteQuack(
+  async getQuackById(
     quackId: string,
-    userId: string,
-    userRole?: string,
-  ): Promise<void> {
+    currentUserId?: string,
+  ): Promise<Quack | null> {
     const quack = await this.prisma.quack.findUnique({
       where: { id: quackId },
+      include: {
+        user: true,
+        poll: {
+          include: {
+            options: { orderBy: { order: 'asc' } },
+            votes: true,
+          },
+        },
+      },
     });
 
     if (!quack) {
-      throw new NotFoundException(`Quack with id ${quackId} not found`);
+      return null;
     }
 
-    const isAuthor = quack.userId === userId;
-    const isAdmin = userRole === 'admin';
+    return mapPrismaQuackToDomain(quack, currentUserId);
+  }
 
-    if (!isAuthor && !isAdmin) {
-      throw new ForbiddenException(
-        'You are not authorized to delete this quack',
-      );
-    }
-
+  async deleteQuack(quackId: string): Promise<void> {
     await this.prisma.quack.delete({
       where: { id: quackId },
     });
