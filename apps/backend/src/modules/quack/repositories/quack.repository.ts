@@ -1,5 +1,6 @@
 import { PrismaService } from '@/core/prisma/prisma.service';
 import {
+  Prisma,
   Poll as PrismaPoll,
   PollOption as PrismaPollOption,
   PollVote as PrismaPollVote,
@@ -10,6 +11,7 @@ import { Poll } from '@/modules/quack/domain/poll';
 import { Mood, Quack } from '@/modules/quack/domain/quack';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -89,33 +91,46 @@ const mapPrismaQuackToDomain = (
 export class QuackRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getQuacks(search?: string, currentUserId?: string): Promise<Quack[]> {
+  async getQuacks(
+    search?: string,
+    currentUserId?: string,
+    mine?: boolean,
+  ): Promise<Quack[]> {
     const trimmed = search?.trim();
-    const where = trimmed
-      ? {
-          OR: [
-            { text: { contains: trimmed, mode: 'insensitive' as const } },
-            {
-              user: {
-                name: { contains: trimmed, mode: 'insensitive' as const },
+    const conditions: Prisma.QuackWhereInput[] = [];
+
+    if (mine && currentUserId) {
+      conditions.push({ userId: currentUserId });
+    }
+
+    if (trimmed) {
+      conditions.push({
+        OR: [
+          { text: { contains: trimmed, mode: 'insensitive' as const } },
+          {
+            user: {
+              name: { contains: trimmed, mode: 'insensitive' as const },
+            },
+          },
+          {
+            user: {
+              username: { contains: trimmed, mode: 'insensitive' as const },
+            },
+          },
+          {
+            user: {
+              displayUsername: {
+                contains: trimmed,
+                mode: 'insensitive' as const,
               },
             },
-            {
-              user: {
-                username: { contains: trimmed, mode: 'insensitive' as const },
-              },
-            },
-            {
-              user: {
-                displayUsername: {
-                  contains: trimmed,
-                  mode: 'insensitive' as const,
-                },
-              },
-            },
-          ],
-        }
-      : undefined;
+          },
+        ],
+      });
+    }
+
+    const where: Prisma.QuackWhereInput | undefined =
+      conditions.length > 0 ? { AND: conditions } : undefined;
 
     const quacks = await this.prisma.quack.findMany({
       where,
@@ -236,5 +251,25 @@ export class QuackRepository {
       },
     });
     return mapPrismaPollToDomain(updatedPoll, userId);
+  }
+
+  async deleteQuack(quackId: string, userId: string): Promise<void> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+    });
+
+    if (!quack) {
+      throw new NotFoundException(`Quack with id ${quackId} not found`);
+    }
+
+    if (quack.userId !== userId) {
+      throw new ForbiddenException(
+        'You are not authorized to delete this quack',
+      );
+    }
+
+    await this.prisma.quack.delete({
+      where: { id: quackId },
+    });
   }
 }
