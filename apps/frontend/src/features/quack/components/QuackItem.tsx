@@ -23,14 +23,16 @@ import { useDeleteQuack } from "@/features/quack/hooks/useDeleteQuack"
 type QuackItemProps = {
   quack: Quack
   currentUserId?: string
+  isAdmin?: boolean
 }
 
-export function QuackItem({ quack, currentUserId }: QuackItemProps) {
+export function QuackItem({ quack, currentUserId, isAdmin = false }: QuackItemProps) {
   const { name, username } = quack.user
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const deleteQuackMutation = useDeleteQuack()
 
   const isAuthor = Boolean(currentUserId && quack.userId === currentUserId)
+  const canDelete = isAuthor || isAdmin
 
   const initials = name
     .split(" ")
@@ -75,7 +77,7 @@ export function QuackItem({ quack, currentUserId }: QuackItemProps) {
               ) : null}
             </div>
 
-            {isAuthor ? (
+            {canDelete ? (
               <Button
                 variant="ghost"
                 size="sm"

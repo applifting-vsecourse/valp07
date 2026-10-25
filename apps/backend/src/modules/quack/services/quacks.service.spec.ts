@@ -147,14 +147,49 @@ describe('QuacksService', () => {
     expect(repository.retractVote).toHaveBeenCalledWith('p1', 'u1');
   });
 
-  it('deletes a quack', async () => {
+  it('deletes a quack as author', async () => {
     const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue({
+      id: 'q1',
+      userId: 'u1',
+    } as Quack);
     repository.deleteQuack.mockResolvedValue();
 
     const service = new QuacksService(repository);
-    const user = { id: 'u1' } as Identity;
+    const user = { id: 'u1', role: 'user' } as Identity;
 
     await expect(service.deleteQuack('q1', user)).resolves.toBeUndefined();
-    expect(repository.deleteQuack).toHaveBeenCalledWith('q1', 'u1');
+    expect(repository.deleteQuack).toHaveBeenCalledWith('q1');
+  });
+
+  it('deletes a quack as admin', async () => {
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue({
+      id: 'q1',
+      userId: 'u1',
+    } as Quack);
+    repository.deleteQuack.mockResolvedValue();
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2', role: 'admin' } as Identity;
+
+    await expect(service.deleteQuack('q1', user)).resolves.toBeUndefined();
+    expect(repository.deleteQuack).toHaveBeenCalledWith('q1');
+  });
+
+  it('throws ForbiddenException when another user tries to delete quack', async () => {
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue({
+      id: 'q1',
+      userId: 'u1',
+    } as Quack);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2', role: 'user' } as Identity;
+
+    await expect(service.deleteQuack('q1', user)).rejects.toThrow(
+      'You are not authorized to delete this quack',
+    );
+    expect(repository.deleteQuack).not.toHaveBeenCalled();
   });
 });

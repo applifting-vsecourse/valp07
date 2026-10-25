@@ -2,7 +2,11 @@ import { Poll } from '@/modules/quack/domain/poll';
 import { Mood, Quack } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 @Injectable()
 export class QuacksService {
@@ -17,7 +21,22 @@ export class QuacksService {
   }
 
   async deleteQuack(quackId: string, user: Identity): Promise<void> {
-    return this.quackRepository.deleteQuack(quackId, user.id);
+    const quack = await this.quackRepository.getQuackById(quackId);
+
+    if (!quack) {
+      throw new NotFoundException(`Quack with id ${quackId} not found`);
+    }
+
+    const isOwner = quack.userId === user.id;
+    const isAdmin = user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException(
+        'You are not authorized to delete this quack',
+      );
+    }
+
+    return this.quackRepository.deleteQuack(quackId);
   }
 
   async createQuack(
