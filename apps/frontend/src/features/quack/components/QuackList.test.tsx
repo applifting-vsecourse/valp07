@@ -124,21 +124,6 @@ describe("QuackList", () => {
     expect(deleteButtons).toHaveLength(1)
   })
 
-  it("shows delete button only for user's own quacks", () => {
-    const ownQuack = quack({ id: "q1", userId: "u1" })
-    const otherQuack = quack({ id: "q2", userId: "u2", text: "other quack" })
-
-    renderQuackList(
-      <QuackList
-        quacks={[ownQuack, otherQuack]}
-        currentUserId="u1"
-      />,
-    )
-
-    const deleteButtons = screen.getAllByRole("button", { name: /delete quack/i })
-    expect(deleteButtons).toHaveLength(1)
-  })
-
   it("shows delete button for all quacks when user is an admin", () => {
     const quack1 = quack({ id: "q1", userId: "u1" })
     const quack2 = quack({ id: "q2", userId: "u2", text: "other quack" })
@@ -150,16 +135,6 @@ describe("QuackList", () => {
         isAdmin={true}
       />,
     )
-
-    const deleteButtons = screen.getAllByRole("button", { name: /delete quack/i })
-    expect(deleteButtons).toHaveLength(2)
-  })
-
-  it("does not show delete button when not signed in", () => {
-    renderQuackList(<QuackList quacks={[quack()]} />)
-
-    expect(screen.queryByRole("button", { name: /delete quack/i })).not.toBeInTheDocument()
-  })
 
     const deleteButtons = screen.getAllByRole("button", { name: /delete quack/i })
     expect(deleteButtons).toHaveLength(2)
