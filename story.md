@@ -1,18 +1,18 @@
-# User Story: Polls on Quacks
+# User Story: Quack Replies & Discussion Threads
 
 ## 1. Summary & Core Value Proposition
 
-- **Who wants it:** Quacker authors who want to ask a question to the community, and Quacker readers who want to answer.
-- **What they get:** The ability to attach a multiple-choice poll (2 to 4 options) to a quack, vote instantly with one click, change or retract their choice, and view accurate aggregate counts and percentages.
-- **Why:** To eliminate manual counting of reply comments, prevent tallying errors, and avoid burying the original post under dozens of reply messages.
+- **Who wants it:** Quacker users and community members who participate in discussions.
+- **What they get:** The ability to reply directly to a quack, view chronologically organized replies inline within the feed or on a dedicated thread permalink page (`/quacks/:id`), and have peace of mind that their replies belong to them and will not be erased if the original author deletes the parent quack.
+- **Why:** Previously, users improvised discussions by posting standalone quacks beginning with `@username`, cluttering the main feed and making conversations impossible to follow. Direct replies create clear context while respecting content ownership.
 
 ---
 
 ## 2. User Story
 
 **As a** Quacker user,  
-**I want to** attach a multiple-choice poll to my quack and allow others to vote on it,  
-**So that** I can get accurate, aggregated answers immediately without tallying manual replies.
+**I want to** reply directly to any quack and read threaded replies beneath it,  
+**So that** I can engage in structured conversations where my contributions remain preserved even if the parent post is deleted.
 
 ---
 
@@ -20,138 +20,194 @@
 
 ### In Scope (MVP)
 
-- **Poll Creation:** Authors can optionally attach a poll with 2 to 4 options when composing a quack. The main quack body text serves as the question prompt.
-- **Single-Choice Voting:** Authenticated users can cast exactly one vote per poll.
-- **Vote Modification & Retraction:** Users can change their vote to another option, or click their selected option again to deselect and retract their vote.
-- **Immediate Feedback:** Optimistic UI updates vote counts and active selections instantly. If an error occurs, the UI rolls back and displays an error toast.
-- **Public & Anonymous Tallies:** Option counts and percentages are visible to all users at all times. Individual voter identities remain anonymous.
-- **Self-Voting:** The author of a quack can vote in their own poll.
-- **Lifecycle:** Polls remain open indefinitely for MVP (no expiration timer, no manual close button).
+- **Single-Level Flat Discussions:** Users can reply to any top-level quack. All replies belong directly to the parent quack (1-level thread hierarchy).
+- **Text-Only Lightweight Replies:** Replies contain text only (up to 280 characters). No moods or poll attachments on replies.
+- **Hybrid Viewport Access:**
+  - **Inline Feed Expansion:** Clicking the reply toggle button (`💬 X replies`) on a quack card in the feed expands an inline discussion accordion with replies and a quick-reply input without leaving the feed.
+  - **Permalink Thread View (`/quacks/:id`):** Standalone route rendering the parent quack with full metadata, reply composer, and the complete chronological reply list.
+- **Content Privacy & Ownership on Deletion (Conditional Tombstone):**
+  - **Zero Replies:** Deleting a quack with 0 replies executes a physical hard delete.
+  - **Has Replies:** Deleting a quack that has replies permanently scrubs the author's text (`[This quack was deleted by author]`), removes attached moods/polls, and sets `deletedAt = now()`. The row remains as an anonymous tombstone anchor so child replies written by other users are preserved.
+  - **Reply Deletion:** Authors or moderators can delete individual replies. If the last reply under a tombstoned parent is deleted, the orphaned parent tombstone is cleaned up automatically.
+- **Dynamic Reply Counts:** Reply counters are computed dynamically on query (`_count`), avoiding desynchronization risks.
+- **Main Feed Hygiene:** Replies and tombstoned quacks are automatically filtered out of the main timeline (`where: { replyToId: null, deletedAt: null }`).
 
-### Out of Scope (Deferred to Future Iterations)
+### Out of Scope (Deferred)
 
-- Multiple-choice selections (checkboxes / multi-select).
-- Scheduled poll expiration or auto-close timer.
-- Manual poll closing by the author.
-- Non-anonymous voter lists (e.g., clicking to see which user voted for what).
-- Standalone poll question field distinct from the quack body text.
-- WebSockets or continuous background polling (uses standard TanStack Query refetching on window focus and user action).
+- Deeply nested recursive reply trees (replying to a reply).
+- Poll attachments or mood tags inside replies.
+- Rich-text / image attachments.
+- Live WebSockets / real-time streaming updates (relies on TanStack Query window refocus refetching and cache invalidation).
 
 ---
 
-## 4. What Happens When There Is Nothing to Show (Empty States & Zero Values)
+## 4. Empty, Zero, and Loading States (Design Contract)
 
-Per the project design contract (`DESIGN.md`), every component must explicitly define its empty and zero states:
+Per `DESIGN.md`, every component explicitly handles all states:
 
-1. **Poll with Zero Votes (New Poll):**
-   - Each option displays `0 votes (0%)`.
-   - The option background fill bar has `0%` width.
-   - The footer displays summary text: `0 votes · No votes yet`.
-   - No option has an active/selected radio indicator.
-2. **Poll Form Initial State (When Clicking "Add poll"):**
-   - Two empty option input fields appear with placeholder examples (e.g., "Option 1", "Option 2").
-   - The submit button shows clear inline validation under fields if the user attempts to submit while options are blank.
-3. **Removing/Cancelling Poll Attachment:**
-   - If the author decides not to include a poll before posting, clicking "Remove poll" clears the poll inputs and restores the default quack form with no poll container rendered.
+1. **Zero Replies State (Expanded or Permalink):**
+   - Renders a clean empty state: `"No replies yet. Be the first to quack back!"`
+2. **Reply Input Zero/Pristine State:**
+   - Input displays placeholder `"Write a reply..."` with character counter `0 / 280`. Submit button is enabled for immediate validation feedback.
+3. **Tombstone Card State:**
+   - When a parent quack was deleted by its author, it displays a muted tombstone card: `"This quack was deleted by its author."` No avatar, username, mood, or poll is displayed. All existing replies render beneath it.
+4. **Deleted Reply Under Tombstone (Last Child Deleted):**
+   - Deleting the final reply under a tombstoned quack immediately purges both the reply and the tombstone parent, transitioning the feed or navigating back if on permalink.
+5. **Loading States:**
+   - Skeleton loader matching the height and avatar layout of reply items.
 
 ---
 
 ## 5. Functional Requirements
 
-### 5.1 Poll Creation
+### 5.1 Backend & Data Model
 
-- The `QuackForm` includes an "Add poll" button.
-- When clicked, inputs for options are shown:
-  - Minimum 2 options, maximum 4 options.
-  - "Add option" button is available when fewer than 4 options exist.
-  - "Remove option" icon button is available on each row when more than 2 options exist.
-  - "Remove poll" button discards the poll attachment.
-  - Each option field has a maximum length of 80 characters.
-  - Validation: Form submission is blocked with inline error text if quack body is empty, if any option is empty, or if fewer than 2 options exist.
+- **Quack Model Extension:**
+  - `replyToId String?`: Foreign key pointing to parent `Quack.id`.
+  - `replyTo Quack? @relation("QuackReplies", fields: [replyToId], references: [id], onDelete: Restrict)`: Database-level safety rejecting physical deletion when replies exist.
+  - `replies Quack[] @relation("QuackReplies")`: Child relation.
+  - `deletedAt DateTime?`: Timestamp set when a quack with replies is deleted.
+  - Composite indexes on `[replyToId]` and `[createdAt]`.
+- **API Endpoints:**
+  - `GET /quacks/:id/replies`: Returns replies ordered by `createdAt ASC` with author details (`User`).
+  - `POST /quacks/:id/replies`: Validates text (1–280 chars), creates quack with `replyToId = :id` and authenticated `userId`.
+  - `GET /quacks/:id`: Returns quack with author, poll, and replies.
+  - `DELETE /quacks/:id`:
+    - If `_count.replies === 0`: calls `prisma.quack.delete({ where: { id } })`.
+    - If `_count.replies > 0`: updates quack to `deletedAt = now()`, scrubs `text = '[This quack was deleted by author]'`, removes poll if present.
 
-### 5.2 Poll Display
+### 5.2 Frontend UI & Behavior
 
-- Rendered inside the `QuackCard` below the quack text and mood badge.
-- Contained with standard spacing and hairline divider (`border-border`), never as a nested card.
-- Each option row displays:
-  - Option text.
-  - Fill bar indicating percentage of total votes.
-  - Text badge showing vote count and percentage (e.g., `4 votes (40%)`).
-  - Active radio highlight if the current logged-in user voted for this option.
-- Bottom metadata line displays total votes count (e.g., `10 votes`).
-
-### 5.3 Voting & Interaction
-
-- Clicking an unselected option:
-  - If user had not voted: increments option vote count by 1, marks option as selected.
-  - If user had voted for another option: decrements previous option by 1, increments new option by 1, moves selection.
-- Clicking the currently selected option:
-  - Deselects the option, decrements its count by 1, total votes decrements by 1 (vote retraction).
-- **Error Handling & Rollback:**
-  - If the server request fails, the UI immediately reverts to the pre-click state and displays a destructive toast notification: _"Unable to record your vote. Please try again."_
+- **`QuackItem` Feed Component:**
+  - Shows reply count button (`💬 X`) alongside timestamp.
+  - Clicking toggles inline reply section with divider.
+- **`ReplyList` & `ReplyItem`:**
+  - Displays replies with hairline divider, avatar, username, timestamp, and delete button (if current user is author or admin).
+  - Uses semantic tokens (`text-muted-foreground`, `border-border`).
+- **`ReplyForm`:**
+  - Compact form with `<label>`, textarea, character count, and single primary button ("Reply").
+  - Optimistic UI updates with automatic rollback and destructive toast on failure.
 
 ---
 
 ## 6. Acceptance Criteria (Verifiable in Browser: Yes / No)
 
-Every criterion below is directly observable and testable in the browser UI.
+### Criterion 1: Replying to a Quack Inline
 
-### Criterion 1: Optional Poll Attachment in Composer
-
-- **Action:** In the browser, navigate to the Quacks feed and observe the post composer form. Click "Add poll".
-- **Observable Result:** Two option input fields appear with an "Add option" button and a "Remove poll" button.
+- **Action:** In the main feed, click the "💬 Reply" button on a quack, type `"Great point!"`, and click "Reply".
+- **Observable Result:** The reply appears immediately in the inline thread list with the current user's name, avatar, and timestamp. The reply count increments by 1.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 2: Option Count Limits (2 to 4 options)
+### Criterion 2: Replies Hidden from Main Feed
 
-- **Action:** Click "Add option" until 4 options are present, then inspect the buttons.
-- **Observable Result:** The "Add option" button disappears or is disabled once 4 options exist. Each option row displays a remove button until only 2 options remain, at which point remove buttons are hidden or disabled.
+- **Action:** Refresh the main feed `/quacks`.
+- **Observable Result:** The reply `"Great point!"` does not appear as a standalone post in the main timeline; it only appears under its parent quack when expanded or viewed.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 3: Zero Votes State Display
+### Criterion 3: Zero Replies State
 
-- **Action:** Publish a quack with 2 options without voting on it.
-- **Observable Result:** In the feed, the poll displays both options with `0 votes (0%)`, empty progress fill bars, and the text `0 votes · No votes yet`.
+- **Action:** Click "💬 0 replies" on a brand new quack.
+- **Observable Result:** The inline section opens showing the message: `"No replies yet. Be the first to quack back!"` and the reply form.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 4: Casting an Instant Vote
+### Criterion 4: Dedicated Thread Permalink (`/quacks/:id`)
 
-- **Action:** Click on "Option 1" on a poll with 0 votes.
-- **Observable Result:** Instantly without page reload, "Option 1" displays `1 vote (100%)`, the fill bar animates to 100%, "Option 1" is highlighted as selected, and the poll footer displays `1 vote`.
+- **Action:** Navigate directly in the browser address bar to `/quacks/<id>`.
+- **Observable Result:** The page renders the parent quack at the top, followed by the reply composer and all existing replies in chronological order.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 5: Switching a Vote
+### Criterion 5: Deleting a Quack with Active Replies (Tombstone & Content Scrubbing)
 
-- **Action:** On a poll where "Option 1" is currently selected (showing 1 vote), click "Option 2".
-- **Observable Result:** Instantly, "Option 1" changes to `0 votes (0%)`, "Option 2" changes to `1 vote (100%)`, and the selection indicator moves from "Option 1" to "Option 2".
+- **Action:** User A posts a quack. User B posts a reply to it. User A clicks the delete button on their quack and confirms deletion in the dialog.
+- **Observable Result:** The parent quack disappears from the main feed. Navigating to the thread permalink displays a tombstone card: `"This quack was deleted by its author."` (original text and poll are completely gone). User B's reply remains visible and intact.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 6: Retracting a Vote
+### Criterion 6: Deleting a Quack with Zero Replies (Hard Delete)
 
-- **Action:** Click on the currently selected option ("Option 2").
-- **Observable Result:** Instantly, "Option 2" deselects, its count changes from `1 vote` back to `0 votes (0%)`, and the footer updates to `0 votes · No votes yet`.
+- **Action:** Post a quack without any replies, then click "Delete" and confirm.
+- **Observable Result:** The quack is completely removed from the feed and database. Navigating to its URL returns a 404 Not Found error page.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 7: Vote Persistence on Reload
+### Criterion 7: Deleting a Reply
 
-- **Action:** Cast a vote on an option, then reload the page (F5 / browser refresh).
-- **Observable Result:** After the feed reloads, the chosen option remains highlighted as selected and the vote counts match the state prior to reloading.
+- **Action:** Click the delete button on your own reply and confirm.
+- **Observable Result:** The reply is immediately removed from the thread list, and the parent quack's reply counter decrements by 1.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 8: Failure Rollback and Error Notification
+### Criterion 8: Automatic Purge of Orphaned Tombstone
 
-- **Action:** In browser DevTools Network tab, switch network throttling to "Offline", then click an unselected option.
-- **Observable Result:** The temporary optimistic selection reverts to its previous state, and a visible toast error appears on screen stating that the vote could not be recorded.
+- **Action:** On a tombstoned parent quack that only has 1 reply remaining, delete that last reply.
+- **Observable Result:** Both the reply and the tombstone parent are purged completely; navigating to the thread URL displays 404 Not Found.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
-### Criterion 9: Form Validation Prevents Incomplete Polls
+### Criterion 9: Character Limit and Validation
 
-- **Action:** Click "Add poll", leave option inputs blank, and click the submit button.
-- **Observable Result:** Submission does not occur, and visible error text appears below the empty option inputs stating that option text is required.
+- **Action:** Attempt to submit an empty reply or enter 281 characters into the reply input.
+- **Observable Result:** Form shows inline validation error preventing submission.
 - **Check:** _Can be verified in browser (Yes/No)?_ **Yes**
 
 ---
 
-## 7. Open Questions Status
+## 7. Decisions Section
 
-- **Open questions remaining:** **None.** All product behavior, interaction models, edge cases, error recovery, and empty states have been clarified and decided.
+### Decision 1: Self-Referencing Quack vs Dedicated Reply Table
+
+- **Chosen:** Self-referencing `Quack` model with `replyToId: String?`.
+- **Rejected:** Dedicated `Reply` table.
+- **Why Rejected:** A separate table introduces duplicated logic across backend and frontend for authoring, moderation, user attribution, and sanitization. Single-level replies share almost all attributes with quacks, making self-referencing simpler and more maintainable.
+
+### Decision 2: Conversation Depth (Single-Level Flat vs Nested Tree)
+
+- **Chosen:** 1-level flat threads (all replies attach directly to the root quack).
+- **Rejected:** Arbitrary recursive nested trees (Reddit-style).
+- **Why Rejected:** Deep nesting causes poor UX on mobile viewports, requires complex recursive CTE queries that Prisma does not natively support, and exceeds the PO's requirement for focused discussions under quacks.
+
+### Decision 3: Handling Parent Deletion with Active Replies
+
+- **Chosen:** Conditional tombstone with content scrubbing (`text` wiped, poll removed, `deletedAt = now()`) if replies exist; hard delete if 0 replies.
+- **Rejected Option A (Cascading hard delete):** Rejected because it violates the core PO requirement that replies belong to their authors and must not disappear when a parent post is deleted.
+- **Rejected Option B (`onDelete: SetNull`):** Rejected because setting parent references to null turns replies into confusing orphaned standalone posts in the main feed and destroys thread continuity.
+- **Rejected Option C (Universal soft delete):** Rejected because it pollutes the database with permanent dead rows for quacks that had no replies.
+
+### Decision 4: Reply Count Storage
+
+- **Chosen:** Dynamic computation on-the-fly using Prisma `_count`.
+- **Rejected:** Denormalized `replyCount: Int` column on `Quack`.
+- **Why Rejected:** Denormalized counters store data twice, requiring brittle transactional synchronizations on every create, delete, and moderator wipe. Stored counters frequently drift out of sync during concurrent requests or direct DB operations.
+
+### Decision 5: Foreign Key Referential Action
+
+- **Chosen:** `onDelete: Restrict`.
+- **Rejected:** `onDelete: Cascade` and `onDelete: SetNull`.
+- **Why Rejected:** `Restrict` enforces database-level referential integrity, making it physically impossible for an errant script or service call to wipe out another user's replies.
+
+---
+
+## 8. Proposed Schema Change (`schema.prisma`)
+
+```prisma
+model Quack {
+  id        String    @id @default(cuid())
+  text      String    @db.Text
+  mood      Mood?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  poll      Poll?
+
+  // Threading / replies relations
+  replyToId String?
+  replyTo   Quack?    @relation("QuackReplies", fields: [replyToId], references: [id], onDelete: Restrict)
+  replies   Quack[]   @relation("QuackReplies")
+
+  // Tombstone marker for deleted posts that have active replies
+  deletedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([replyToId])
+  @@index([createdAt])
+  @@map("quack")
+}
+```

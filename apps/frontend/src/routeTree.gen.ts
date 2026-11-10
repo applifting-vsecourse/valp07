@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ProtectedPagesQuacksRouteImport } from './routes/_ProtectedPages/quacks'
 import { Route as ProtectedPagesSettingsRouteImport } from './routes/_ProtectedPages/settings'
+import { Route as ProtectedPagesQuacksIdRouteImport } from './routes/_ProtectedPages/quacks.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,20 +46,27 @@ const ProtectedPagesSettingsRoute = ProtectedPagesSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ProtectedPagesRoute,
 } as any)
+const ProtectedPagesQuacksIdRoute = ProtectedPagesQuacksIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProtectedPagesQuacksRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/quacks': typeof ProtectedPagesQuacksRoute
+  '/quacks': typeof ProtectedPagesQuacksRouteWithChildren
   '/settings': typeof ProtectedPagesSettingsRoute
+  '/quacks/$id': typeof ProtectedPagesQuacksIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/quacks': typeof ProtectedPagesQuacksRoute
+  '/quacks': typeof ProtectedPagesQuacksRouteWithChildren
   '/settings': typeof ProtectedPagesSettingsRoute
+  '/quacks/$id': typeof ProtectedPagesQuacksIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -66,14 +74,16 @@ export interface FileRoutesById {
   '/_ProtectedPages': typeof ProtectedPagesRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/_ProtectedPages/quacks': typeof ProtectedPagesQuacksRoute
+  '/_ProtectedPages/quacks': typeof ProtectedPagesQuacksRouteWithChildren
   '/_ProtectedPages/settings': typeof ProtectedPagesSettingsRoute
+  '/_ProtectedPages/quacks/$id': typeof ProtectedPagesQuacksIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/quacks' | '/settings'
+  fullPaths:
+    '/' | '/login' | '/signup' | '/quacks' | '/settings' | '/quacks/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/quacks' | '/settings'
+  to: '/' | '/login' | '/signup' | '/quacks' | '/settings' | '/quacks/$id'
   id:
     | '__root__'
     | '/'
@@ -82,6 +92,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_ProtectedPages/quacks'
     | '/_ProtectedPages/settings'
+    | '/_ProtectedPages/quacks/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -135,16 +146,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedPagesSettingsRouteImport
       parentRoute: typeof ProtectedPagesRoute
     }
+    '/_ProtectedPages/quacks/$id': {
+      id: '/_ProtectedPages/quacks/$id'
+      path: '/$id'
+      fullPath: '/quacks/$id'
+      preLoaderRoute: typeof ProtectedPagesQuacksIdRouteImport
+      parentRoute: typeof ProtectedPagesQuacksRoute
+    }
   }
 }
 
+interface ProtectedPagesQuacksRouteChildren {
+  ProtectedPagesQuacksIdRoute: typeof ProtectedPagesQuacksIdRoute
+}
+
+const ProtectedPagesQuacksRouteChildren: ProtectedPagesQuacksRouteChildren = {
+  ProtectedPagesQuacksIdRoute: ProtectedPagesQuacksIdRoute,
+}
+
+const ProtectedPagesQuacksRouteWithChildren =
+  ProtectedPagesQuacksRoute._addFileChildren(ProtectedPagesQuacksRouteChildren)
+
 interface ProtectedPagesRouteChildren {
-  ProtectedPagesQuacksRoute: typeof ProtectedPagesQuacksRoute
+  ProtectedPagesQuacksRoute: typeof ProtectedPagesQuacksRouteWithChildren
   ProtectedPagesSettingsRoute: typeof ProtectedPagesSettingsRoute
 }
 
 const ProtectedPagesRouteChildren: ProtectedPagesRouteChildren = {
-  ProtectedPagesQuacksRoute: ProtectedPagesQuacksRoute,
+  ProtectedPagesQuacksRoute: ProtectedPagesQuacksRouteWithChildren,
   ProtectedPagesSettingsRoute: ProtectedPagesSettingsRoute,
 }
 

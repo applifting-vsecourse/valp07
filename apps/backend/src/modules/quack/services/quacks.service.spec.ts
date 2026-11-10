@@ -153,6 +153,7 @@ describe('QuacksService', () => {
       id: 'q1',
       userId: 'u1',
     } as Quack);
+    repository.countActiveReplies.mockResolvedValue(0);
     repository.deleteQuack.mockResolvedValue();
 
     const service = new QuacksService(repository);
@@ -168,12 +169,96 @@ describe('QuacksService', () => {
       id: 'q1',
       userId: 'u1',
     } as Quack);
+    repository.countActiveReplies.mockResolvedValue(0);
     repository.deleteQuack.mockResolvedValue();
 
     const service = new QuacksService(repository);
     const user = { id: 'u2', role: 'admin' } as Identity;
 
     await expect(service.deleteQuack('q1', user)).resolves.toBeUndefined();
+    expect(repository.deleteQuack).toHaveBeenCalledWith('q1');
+  });
+
+  it('tombstones a quack when deleting and active replies exist', async () => {
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue({
+      id: 'q1',
+      userId: 'u1',
+    } as Quack);
+    repository.countActiveReplies.mockResolvedValue(2);
+    repository.tombstoneQuack.mockResolvedValue();
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u1', role: 'user' } as Identity;
+
+    await expect(service.deleteQuack('q1', user)).resolves.toBeUndefined();
+    expect(repository.tombstoneQuack).toHaveBeenCalledWith('q1');
+    expect(repository.deleteQuack).not.toHaveBeenCalled();
+  });
+
+  it('creates a reply to an active parent quack', async () => {
+    const parent = aQuack({ id: 'q1' });
+    const reply = aQuack({ id: 'r1', replyToId: 'q1', text: 'nice quack' });
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue(parent);
+    repository.createReply.mockResolvedValue(reply);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2' } as Identity;
+
+    await expect(
+      service.createReply('q1', user, 'nice quack'),
+    ).resolves.toEqual(reply);
+    expect(repository.createReply).toHaveBeenCalledWith({
+      replyToId: 'q1',
+      text: 'nice quack',
+      userId: 'u2',
+    });
+  });
+
+  it('rejects replying to a deleted quack', async () => {
+    const parent = aQuack({ id: 'q1', deletedAt: new Date() });
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue(parent);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2' } as Identity;
+
+    await expect(service.createReply('q1', user, 'hello')).rejects.toThrow(
+      'Cannot reply to a deleted quack',
+    );
+  });
+
+  it('rejects replying to another reply', async () => {
+    const child = aQuack({ id: 'r1', replyToId: 'q1' });
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockResolvedValue(child);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2' } as Identity;
+
+    await expect(service.createReply('r1', user, 'nested')).rejects.toThrow(
+      'Cannot reply to a reply',
+    );
+  });
+
+  it('deletes a reply and purges orphaned tombstone parent if 0 replies remain', async () => {
+    const reply = aQuack({ id: 'r1', replyToId: 'q1', userId: 'u2' });
+    const tombstoneParent = aQuack({ id: 'q1', deletedAt: new Date() });
+    const repository = mock<QuackRepository>();
+    repository.getQuackById.mockImplementation(async (id: string) => {
+      if (id === 'r1') return reply;
+      if (id === 'q1') return tombstoneParent;
+      return null;
+    });
+    repository.deleteQuack.mockResolvedValue();
+    repository.countActiveReplies.mockResolvedValue(0);
+
+    const service = new QuacksService(repository);
+    const user = { id: 'u2', role: 'user' } as Identity;
+
+    await expect(service.deleteQuack('r1', user)).resolves.toBeUndefined();
+    expect(repository.deleteQuack).toHaveBeenCalledWith('r1');
     expect(repository.deleteQuack).toHaveBeenCalledWith('q1');
   });
 

@@ -38,10 +38,21 @@ model Quack {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   poll      Poll?
+
+  // Threading / replies relations
+  replyToId String?
+  replyTo   Quack?   @relation("QuackReplies", fields: [replyToId], references: [id], onDelete: Restrict)
+  replies   Quack[]  @relation("QuackReplies")
+
+  // Tombstone marker for deleted posts that have active replies
+  deletedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId])
+  @@index([replyToId])
+  @@index([createdAt])
   @@map("quack")
 }
 
