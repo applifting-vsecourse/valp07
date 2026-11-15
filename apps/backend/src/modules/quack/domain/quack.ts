@@ -17,4 +17,7 @@ export type Quack = {
   updatedAt: Date;
   user?: QuackAuthor;
   poll?: Poll | null;
+  replyToId?: string | null;
+  replyCount?: number;
+  deletedAt?: Date | null;
 };

@@ -23,6 +23,9 @@ type PrismaQuackWithRelations = PrismaQuack & {
         votes: PrismaPollVote[];
       })
     | null;
+  _count?: {
+    replies?: number;
+  };
 };
 
 export const mapPrismaPollToDomain = (
@@ -72,6 +75,9 @@ const mapPrismaQuackToDomain = (
   userId: quack.userId,
   createdAt: quack.createdAt,
   updatedAt: quack.updatedAt,
+  replyToId: quack.replyToId ?? null,
+  replyCount: quack._count?.replies ?? 0,
+  deletedAt: quack.deletedAt ?? null,
   user: quack.user
     ? {
         id: quack.user.id,
@@ -96,7 +102,10 @@ export class QuackRepository {
     mine?: boolean,
   ): Promise<Quack[]> {
     const trimmed = search?.trim();
-    const conditions: Prisma.QuackWhereInput[] = [];
+    const conditions: Prisma.QuackWhereInput[] = [
+      { replyToId: null },
+      { deletedAt: null },
+    ];
 
     if (mine && currentUserId) {
       conditions.push({ userId: currentUserId });
@@ -128,8 +137,7 @@ export class QuackRepository {
       });
     }
 
-    const where: Prisma.QuackWhereInput | undefined =
-      conditions.length > 0 ? { AND: conditions } : undefined;
+    const where: Prisma.QuackWhereInput = { AND: conditions };
 
     const quacks = await this.prisma.quack.findMany({
       where,
@@ -139,6 +147,13 @@ export class QuackRepository {
           include: {
             options: { orderBy: { order: 'asc' } },
             votes: true,
+          },
+        },
+        _count: {
+          select: {
+            replies: {
+              where: { deletedAt: null },
+            },
           },
         },
       },
@@ -266,6 +281,13 @@ export class QuackRepository {
             votes: true,
           },
         },
+        _count: {
+          select: {
+            replies: {
+              where: { deletedAt: null },
+            },
+          },
+        },
       },
     });
 
@@ -274,6 +296,63 @@ export class QuackRepository {
     }
 
     return mapPrismaQuackToDomain(quack, currentUserId);
+  }
+
+  async getReplies(quackId: string, currentUserId?: string): Promise<Quack[]> {
+    const replies = await this.prisma.quack.findMany({
+      where: {
+        replyToId: quackId,
+        deletedAt: null,
+      },
+      include: {
+        user: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return replies.map((q) => mapPrismaQuackToDomain(q, currentUserId));
+  }
+
+  async createReply(data: {
+    replyToId: string;
+    text: string;
+    userId: string;
+  }): Promise<Quack> {
+    const reply = await this.prisma.quack.create({
+      data: {
+        text: data.text,
+        replyToId: data.replyToId,
+        userId: data.userId,
+      },
+      include: {
+        user: true,
+      },
+    });
+    return mapPrismaQuackToDomain(reply, data.userId);
+  }
+
+  async countActiveReplies(quackId: string): Promise<number> {
+    return this.prisma.quack.count({
+      where: {
+        replyToId: quackId,
+        deletedAt: null,
+      },
+    });
+  }
+
+  async tombstoneQuack(quackId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.poll.deleteMany({
+        where: { quackId },
+      });
+      await tx.quack.update({
+        where: { id: quackId },
+        data: {
+          text: '[This quack was deleted by author]',
+          mood: null,
+          deletedAt: new Date(),
+        },
+      });
+    });
   }
 
   async deleteQuack(quackId: string): Promise<void> {

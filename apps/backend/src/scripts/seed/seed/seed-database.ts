@@ -175,13 +175,32 @@ Please stop tagging me.`,
   ];
 
   const now = Date.now();
+  const createdQuacks: { id: string; text: string }[] = [];
 
   for (const { author, minutesAgo, text, mood } of exampleQuacks) {
-    await createQuack(prisma, {
+    const quack = await createQuack(prisma, {
       text,
       mood,
       userId: author.id,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+    });
+    createdQuacks.push(quack);
+  }
+
+  // Seed replies on the newest quack so the feed displays a quack with replies
+  const newestQuack = createdQuacks[createdQuacks.length - 1];
+  if (newestQuack) {
+    await createQuack(prisma, {
+      text: 'The swan seemed pretty unapologetic about the whole thing.',
+      userId: caffeinatedDuck.id,
+      replyToId: newestQuack.id,
+      createdAt: new Date(now - 15 * MINUTE_IN_MS),
+    });
+    await createQuack(prisma, {
+      text: 'Appreciate the swift resolution. Now back to reviewing sourdough.',
+      userId: breadCritic.id,
+      replyToId: newestQuack.id,
+      createdAt: new Date(now - 10 * MINUTE_IN_MS),
     });
   }
 };

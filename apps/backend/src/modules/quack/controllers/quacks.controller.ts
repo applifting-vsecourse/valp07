@@ -23,6 +23,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateQuackDto } from './dto/create-quack.dto';
+import { CreateReplyDto } from './dto/create-reply.dto';
 import { ListQuacksDto } from './dto/list-quacks.dto';
 import { QuackResponseDto } from './dto/quack.response.dto';
 
@@ -54,6 +55,51 @@ export class QuacksController {
       query.mine,
     );
     return quacks.map(QuackResponseDto.fromDomain);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a single quack by ID' })
+  @ApiResponse({ status: 200, type: QuackResponseDto })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'Quack not found' })
+  async getById(
+    @User() user: Identity,
+    @Param('id') id: string,
+  ): Promise<QuackResponseDto> {
+    const quack = await this.quacksService.getQuackById(id, user.id);
+    return QuackResponseDto.fromDomain(quack);
+  }
+
+  @Get(':id/replies')
+  @ApiOperation({ summary: 'List replies for a quack' })
+  @ApiResponse({ status: 200, type: [QuackResponseDto] })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'Quack not found' })
+  async getReplies(
+    @User() user: Identity,
+    @Param('id') id: string,
+  ): Promise<QuackResponseDto[]> {
+    const replies = await this.quacksService.getReplies(id, user.id);
+    return replies.map(QuackResponseDto.fromDomain);
+  }
+
+  @Post(':id/replies')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Reply to a quack' })
+  @ApiResponse({ status: 201, type: QuackResponseDto })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot reply to deleted or nested quack',
+  })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'Quack not found' })
+  async reply(
+    @User() user: Identity,
+    @Param('id') id: string,
+    @Body() body: CreateReplyDto,
+  ): Promise<QuackResponseDto> {
+    const reply = await this.quacksService.createReply(id, user, body.text);
+    return QuackResponseDto.fromDomain(reply);
   }
 
   @Post()

@@ -3,6 +3,7 @@ import { Mood, Quack } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -18,6 +19,51 @@ export class QuacksService {
     mine?: boolean,
   ): Promise<Quack[]> {
     return this.quackRepository.getQuacks(search, currentUserId, mine);
+  }
+
+  async getQuackById(quackId: string, currentUserId?: string): Promise<Quack> {
+    const quack = await this.quackRepository.getQuackById(
+      quackId,
+      currentUserId,
+    );
+    if (!quack) {
+      throw new NotFoundException(`Quack with id ${quackId} not found`);
+    }
+    return quack;
+  }
+
+  async getReplies(quackId: string, currentUserId?: string): Promise<Quack[]> {
+    const quack = await this.quackRepository.getQuackById(
+      quackId,
+      currentUserId,
+    );
+    if (!quack) {
+      throw new NotFoundException(`Quack with id ${quackId} not found`);
+    }
+    return this.quackRepository.getReplies(quackId, currentUserId);
+  }
+
+  async createReply(
+    quackId: string,
+    user: Identity,
+    text: string,
+  ): Promise<Quack> {
+    const parent = await this.quackRepository.getQuackById(quackId, user.id);
+    if (!parent) {
+      throw new NotFoundException(`Quack with id ${quackId} not found`);
+    }
+    if (parent.deletedAt) {
+      throw new BadRequestException('Cannot reply to a deleted quack');
+    }
+    if (parent.replyToId) {
+      throw new BadRequestException('Cannot reply to a reply');
+    }
+
+    return this.quackRepository.createReply({
+      replyToId: quackId,
+      text,
+      userId: user.id,
+    });
   }
 
   async deleteQuack(quackId: string, user: Identity): Promise<void> {
@@ -36,7 +82,30 @@ export class QuacksService {
       );
     }
 
-    return this.quackRepository.deleteQuack(quackId);
+    // If deleting a reply
+    if (quack.replyToId) {
+      await this.quackRepository.deleteQuack(quackId);
+      // Clean up orphaned tombstoned parent if this was its last reply
+      const parent = await this.quackRepository.getQuackById(quack.replyToId);
+      if (parent && parent.deletedAt) {
+        const remainingReplies = await this.quackRepository.countActiveReplies(
+          parent.id,
+        );
+        if (remainingReplies === 0) {
+          await this.quackRepository.deleteQuack(parent.id);
+        }
+      }
+      return;
+    }
+
+    // Top-level quack
+    const activeReplies =
+      await this.quackRepository.countActiveReplies(quackId);
+    if (activeReplies > 0) {
+      await this.quackRepository.tombstoneQuack(quackId);
+    } else {
+      await this.quackRepository.deleteQuack(quackId);
+    }
   }
 
   async createQuack(
