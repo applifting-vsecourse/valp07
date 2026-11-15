@@ -211,3 +211,9 @@ model Quack {
   @@map("quack")
 }
 ```
+
+---
+
+## 9. Open Questions Status
+
+- **Open questions remaining:** **None.** All product behavior, interaction models, deletion semantics, edge cases, empty states, and schema changes have been clarified and decided.
