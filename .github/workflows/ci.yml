@@ -50,3 +50,128 @@ jobs:
 
       - name: Build frontend
         run: pnpm frontend build
+
+  test-integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create env files
+        run: pnpm env:check
+
+      - name: Generate Prisma client
+        run: pnpm backend prisma:generate
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://quacker:quacker@localhost:5432/quacker_test
+        run: pnpm backend test:int
+
+  test-e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create env files
+        run: pnpm env:check
+
+      - name: Generate Prisma client
+        run: pnpm backend prisma:generate
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://quacker:quacker@localhost:5432/quacker
+        run: pnpm backend migrate
+
+      - name: Seed database
+        env:
+          DATABASE_URL: postgresql://quacker:quacker@localhost:5432/quacker
+        run: pnpm backend seed
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      - name: Build backend
+        run: pnpm backend build
+
+      - name: Build frontend
+        run: pnpm frontend build
+
+      - name: Run E2E tests
+        env:
+          DATABASE_URL: postgresql://quacker:quacker@localhost:5432/quacker
+        run: |
+          pnpm --filter backend exec node -r dotenv/config dist/main &
+          pnpm frontend start -- --port 3050 --strictPort &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:4050/api/docs >/dev/null && curl -sf http://localhost:3050 >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          pnpm frontend test:e2e
+
+  test-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check for removed or rewritten test lines
+        run: node scripts/check-test-changes.js "origin/${{ github.base_ref }}"
